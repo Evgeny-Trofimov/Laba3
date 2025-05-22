@@ -1,7 +1,6 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
-#include <vector>
 
 using namespace std;
 
@@ -27,7 +26,7 @@ void bisection_method(double a, double b, double eps) {
     
     while (fabs(b - a) > eps) {
         c = (a + b) / 2;
-        cout << "|" << setw(3) << n << "|" << setw(12) << a << "|" << setw(12) << b << "|" << setw(15) << (b - a) << "|\n";
+        cout << "|" << setw(3) << (n+1) << "|" << setw(12) << a << "|" << setw(12) << b << "|" << setw(15) << (b - a) << "|\n";
         
         if (f(c) == 0.0) {
             break;
@@ -55,7 +54,7 @@ void newton_method(double x0, double eps) {
     double x1 = x0 - f(x0) / df(x0);
     
     while (fabs(x1 - x0) > eps) {
-        cout << "|" << setw(3) << n << "|" << setw(12) << x0 << "|" << setw(12) << x1 << "|" << setw(15) << (x1 - x0) << "|\n";
+        cout << "|" << setw(3) << (n+1) << "|" << setw(12) << x0 << "|" << setw(12) << x1 << "|" << setw(15) << (x1 - x0) << "|\n";
         
         x0 = x1;
         x1 = x0 - f(x0) / df(x0);
@@ -81,7 +80,7 @@ void simple_iteration_method(double x0, double eps) {
     double x1 = phi(x0);
     
     while (fabs(x1 - x0) > eps) {
-        cout << "|" << setw(3) << n << "|" << setw(12) << x0 << "|" << setw(12) << x1 << "|" << setw(15) << (x1 - x0) << "|\n";
+        cout << "|" << setw(3) << (n+1) << "|" << setw(12) << x0 << "|" << setw(12) << x1 << "|" << setw(15) << (x1 - x0) << "|\n";
         
         x0 = x1;
         x1 = phi(x0);
