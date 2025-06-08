@@ -1,0 +1,44 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    int n, m;
+    cin >> n >> m;
+
+    vector<int> sequence(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> sequence[i];
+    }
+
+    // Суммы префиксов для быстрого вычисления суммы на отрезке
+    vector<int> prefix(n + 1, 0);
+    for (int i = 0; i < n; ++i) {
+        prefix[i + 1] = prefix[i] + sequence[i];
+    }
+
+    // Динамическое программирование: dp[i] - максимальная разница очков,
+    // которую может получить текущий игрок, начиная с позиции i
+    vector<int> dp(n + 1, 0);
+    
+    for (int i = n - 1; i >= 0; --i) {
+        int max_diff = -1e9;
+        // Игрок может взять от 1 до m чисел
+        for (int j = 1; j <= m && i + j <= n; ++j) {
+            int current_sum = prefix[i + j] - prefix[i];
+            // Разница очков = текущая сумма - лучший результат противника
+            max_diff = max(max_diff, current_sum - dp[i + j]);
+        }
+        dp[i] = max_diff;
+    }
+
+    // Если разница положительная - Павел выиграл
+    if (dp[0] > 0) {
+        cout << "1" << endl;
+    } else {
+        cout << "0" << endl;
+    }
+
+    return 0;
+}
