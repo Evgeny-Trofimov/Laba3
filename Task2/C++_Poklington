@@ -1,1 +1,357 @@
+// Подключаем необходимые библиотеки
+#include <iostream>     
+#include <vector>       
+#include <iomanip>      
+#include <random>        
+#include <cmath>         
+#include <algorithm>    
+#include <thread>        
+#include <mutex>        
+#include <string>        
+#include <sstream>       
+#include <chrono>        
+using namespace std;     
 
+// Функция генерации случайного числа в диапазоне [min, max]
+int RandomGenerator(int min, int max) {
+    random_device rd;         // Источник энтропии (аппаратный генератор)
+    mt19937 gen(rd());        // Генератор Mersenne Twister
+    uniform_int_distribution<int> dis(min, max); // Равномерное распределение
+    return dis(gen);          // Возвращаем случайное число
+}
+
+// Проверка, является ли число i простым (делится ли на простые из вектора prime)
+bool IsPrime(int i, vector<int>& prime) {
+    for (int j = 0; j < prime.size(); j++) { // Перебираем все простые числа
+        if (i % prime[j] == 0) {            // Если делится без остатка
+            return false;                   // Число составное
+        }
+    }
+    return true; // Если не делится ни на одно - простое
+}
+
+// Реализация решета Эратосфена для нахождения простых чисел до p
+vector<int> eratochene(int p) {
+    vector<int> primeNumb;    // Вектор для хранения простых чисел
+    primeNumb.push_back(2);   // Добавляем первое простое число
+    for (int i = 3; i < p; i += 2) { // Проверяем только нечетные числа
+        if (IsPrime(i, primeNumb)) { // Если число простое
+            primeNumb.push_back(i);   // Добавляем в вектор
+        }
+    }
+    return primeNumb; // Возвращаем вектор простых чисел
+}
+
+// Функция модульного возведения в степень (number^power mod n)
+uint64_t mod_pow(uint64_t number, uint64_t power, uint64_t n) {
+    uint64_t ostatok = 1;     // Инициализация результата
+    while (power > 0) {       // Пока степень больше нуля
+        if (power % 2 != 0) { // Если степень нечетная
+            ostatok = (ostatok * number) % n; // Умножаем на основание
+        }
+        power /= 2;          // Делим степень пополам
+        number = (number * number) % n; // Возводим в квадрат основание
+    }
+    return ostatok; // Возвращаем результат
+}
+
+// Проверка малой теоремы Ферма (a^x mod p == 1)
+bool ferma(int a, int x, int p) {
+    uint64_t result = mod_pow(a, x, p); // Вычисляем a^x mod p
+    return result == 1;                 // Проверяем условие теоремы
+}
+
+// Тест Поклингтона для проверки простоты числа
+bool poklingtonTest(int64_t n, const vector<int>& factors, int t) {
+    vector<int> a; // Вектор для хранения случайных оснований
+    for (int i = 0; i < t; i++) { // t проверок
+        int aj = RandomGenerator(2, n - 1); // Случайное основание
+        if (!ferma(aj, n - 1, n)) { // Проверка теоремы Ферма
+            return false; // Число составное
+        }
+
+        // Дополнительная проверка для факторов
+        bool found = false;
+        for (int qj : factors) { // Для каждого делителя
+            if (ferma(aj, (n - 1) / qj, n)) { // Проверка условия
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) { // Если не найдено подходящего делителя
+            return true; // Число простое
+        }
+    }
+    return false; // Число составное
+}
+
+// Подсчет количества бит в числе
+int countBits(uint64_t number) {
+    if (number == 0) return 1; // 0 занимает 1 бит
+    return static_cast<int>(log2(number)) + 1; // Формула для подсчета бит
+}
+
+// Проверка попадания числа в битовый диапазон
+int isWithinBitRange(uint64_t number, int bitCount, int formin) {
+    int numBits = countBits(number); // Считаем биты в числе
+    if (numBits < bitCount) return 1; // Меньше требуемого
+    if (numBits > bitCount) return 2; // Больше требуемого
+    return 3; // В точности соответствует
+}
+
+// Основная функция генерации простого числа
+bool createNum(int k, vector<int>& numbers, vector<string>& plusminus, 
+              vector<int>& oshibki, vector<int>& primes, bool& shouldStop, mutex& mtx) {
+    vector<int> q; // Вектор для хранения множителей
+    uint64_t f = 1; // Произведение множителей
+    uint64_t tempf = 1; // Временное произведение
+    int qi, ai; // Множитель и его степень
+    int64_t n; // Кандидат в простые числа
+    int targetBitCountF = (k / 2) + 1; // Целевое количество бит для f
+    int targetBitCountR = targetBitCountF - 1; // Целевое количество бит для r
+    int tempOshibki = 0; // Счетчик ошибок
+    int formin = 1; // Поправка для малых чисел
+    uint64_t r; // Второй множитель
+
+    if (k < 8) { // Настройка поправки для малых чисел
+        formin = 0;
+    }
+
+    // Основной цикл генерации
+    while (true) {
+        { // Проверка флага остановки
+            lock_guard<mutex> lock(mtx);
+            if (shouldStop) return false;
+        }
+
+        // Выбираем случайный простой множитель и степень
+        qi = primes[RandomGenerator(0, primes.size() / 10)];
+        ai = RandomGenerator(1, 12);
+        tempf *= pow(qi, ai); // Умножаем на множитель в степени
+
+        // Проверка битового диапазона
+        int range = isWithinBitRange(tempf, targetBitCountF, formin);
+        if (range == 2) { // Если превысили
+            f = 1;
+            tempf = 1;
+            q.clear();
+        }
+        else if (range == 1) { // Если меньше
+            q.push_back(qi); // Добавляем множитель
+        }
+        else { // Если в диапазоне
+            f = tempf;
+            q.push_back(qi);
+            // Генерируем r нужного размера
+            do {
+                r = RandomGenerator(1, 30) * 2;
+            } while (isWithinBitRange(r, targetBitCountR, formin) != 3);
+            
+            n = r * f + 1; // Формируем кандидата
+            if (poklingtonTest(n, q, 1)) { // Проверяем на простоту
+                break; // Если простое - выходим
+            }
+            else { // Иначе сбрасываем и пробуем снова
+                tempOshibki++;
+                f = 1;
+                tempf = 1;
+                n = 0;
+                q.clear();
+            }
+        }
+    }
+
+    { // Проверка на остановку и уникальность
+        lock_guard<mutex> lock(mtx);
+        if (shouldStop) return false;
+        if (find(numbers.begin(), numbers.end(), n) != numbers.end()) {
+            return false; // Если число уже есть в списке
+        }
+    }
+
+    // Дополнительные проверки (100 итераций теста Поклингтона)
+    int tempOshibki2 = 0;
+    int i;
+    int iter = 1;
+    while (true) {
+        { // Проверка флага остановки
+            lock_guard<mutex> lock(mtx);
+            if (shouldStop) return false;
+        }
+
+        for (i = 0; i < 100; i++) { // 100 проверок
+            if (!poklingtonTest(n, q, iter)) {
+                tempOshibki2++; // Считаем ошибки
+            }
+        }
+        if (tempOshibki2 <= i / 10) { // Если ошибок <= 10%
+            break; // Число считается простым
+        }
+        else { // Иначе увеличиваем количество проверок
+            tempOshibki2 = 0;
+            iter++;
+        }
+    }
+
+    { // Фиксация результатов
+        lock_guard<mutex> lock(mtx);
+        if (shouldStop) return false;
+        if (numbers.size() >= 10) return false;
+        
+        // Записываем результат
+        if (tempOshibki2 <= i / 10) {
+            plusminus.push_back("+"); // Простое
+        }
+        else {
+            plusminus.push_back("-"); // Составное
+        }
+        numbers.push_back(n); // Добавляем число
+        oshibki.push_back(tempOshibki); // Добавляем количество ошибок
+        
+        if (numbers.size() >= 10) { // Если набрали 10 чисел
+            shouldStop = true; // Останавливаем генерацию
+        }
+        return true;
+    }
+}
+
+// Функция для безопасного ввода одного числа
+int getSingleWordInput(const string& prompt) {
+    string input;
+    double value;
+
+    while (true) {
+        cout << prompt;
+        getline(cin, input);
+
+        // Проверка, что ввод состоит только из цифр
+        bool valid = true;
+        for (size_t i = 0; i < input.size(); ++i) {
+            char c = input[i];
+            if (!isdigit(c)) {
+                valid = false;
+                break;
+            }
+        }
+        
+        // Проверка диапазона
+        istringstream(input) >> value;
+        if (value <= 3 || value > 20) {
+            cout << "Некорректное число. Попробуйте снова.\n";
+            continue;
+        }
+        return value;
+    }
+}
+
+// Главная функция программы
+int main() {
+    vector<int> numbers; // Вектор для хранения сгенерированных чисел
+    vector<string> results; // Вектор для результатов проверки
+    vector<int> attempts; // Вектор для количества попыток
+    int bit_length = 0; // Длина числа в битах
+    bool stop_flag = false; // Флаг для остановки потоков
+    mutex mtx; // Мьютекс для синхронизации
+
+    // Ввод длины простого числа
+    while (true) {
+        bit_length = getSingleWordInput("Введите размерность простого числа (4-20 бит): \n");
+        if (bit_length >= 4 && bit_length <= 20) break;
+        cout << "Некорректный ввод. Допустимый диапазон: 4-20 бит.\n";
+    }
+
+    // Генерация простых чисел до 500 (Решето Эратосфена)
+    vector<int> primes = eratochene(500);
+    cout << "\nПростые числа до 500 (Решето Эратосфена):\n";
+    for (size_t i = 0; i < primes.size(); ++i) {
+        cout << primes[i] << (i % 10 == 9 ? "\n" : " "); // Вывод по 10 чисел в строке
+    }
+    cout << "\n\n";
+
+    // Запуск потоков для генерации чисел
+    vector<thread> threads;
+    const int num_threads = min(4, static_cast<int>(thread::hardware_concurrency()));
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back([&]() { // Лямбда-функция для потока
+            while (true) {
+                {
+                    lock_guard<mutex> lock(mtx);
+                    if (stop_flag) break; // Проверка флага остановки
+                }
+                createNum(bit_length, numbers, results, attempts, primes, stop_flag, mtx);
+            }
+        });
+    }
+
+    // Ожидание завершения (максимум 10 секунд)
+    auto start = chrono::steady_clock::now();
+    while (chrono::steady_clock::now() - start < chrono::seconds(10)) {
+        {
+            lock_guard<mutex> lock(mtx);
+            if (numbers.size() >= 10) { // Если набрали 10 чисел
+                stop_flag = true; // Останавливаем генерацию
+                break;
+            }
+        }
+        this_thread::sleep_for(chrono::milliseconds(100)); // Пауза 100 мс
+    }
+    {
+        lock_guard<mutex> lock(mtx);
+        stop_flag = true; // Гарантированная остановка
+    }
+
+    // Ожидание завершения всех потоков
+    for (auto& t : threads) {
+        if (t.joinable()) t.join();
+    }
+
+    // Обрезка результатов до 10 чисел (если их больше)
+    {
+        lock_guard<mutex> lock(mtx);
+        if (numbers.size() > 10) {
+            numbers.resize(10);
+            results.resize(10);
+            attempts.resize(10);
+        }
+    }
+
+    // Вывод результатов в виде таблицы
+    if (!numbers.empty()) {
+        cout << "\nРезультаты генерации простых чисел (" << bit_length << " бит):\n\n";
+
+        // Заголовок таблицы
+        cout << "|    Num    |";
+        for (size_t i = 0; i < numbers.size(); ++i) {
+            cout << setw(6) << i+1 << " |";
+        }
+
+        // Разделительная строка
+        cout << "\n|-----------|";
+        for (size_t i = 0; i < numbers.size(); ++i) {
+            cout << "-------|";
+        }
+
+        // Строка с числами
+        cout << "\n|     P     |";
+        for (int num : numbers) {
+            cout << setw(6) << num << " |";
+        }
+
+        // Строка с результатами проверки
+        cout << "\n| Результат |";
+        for (const string& res : results) {
+            cout << setw(6) << res << " |";
+        }
+
+        // Строка с количеством попыток
+        cout << "\n|     K     |";
+        for (int att : attempts) {
+            cout << setw(6) << att << " |";
+        }
+
+        cout << endl;
+    }
+    return 0;
+}
