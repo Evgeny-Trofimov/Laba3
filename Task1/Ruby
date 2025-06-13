@@ -1,0 +1,53 @@
+def calculate_y(x)
+  if x < -5
+    2.0
+  elsif x >= -5 && x < -1
+    -Math.sqrt(4 - (x + 3)**2) + 2
+  elsif x >= -1 && x <= 1
+    -3 * x**2 + 1
+  elsif (x > 1 && x <= 2) || x >= 4
+    0.0
+  else
+    Math.sqrt(1 - (x - 3)**2)
+  end
+end
+
+# Ввод параметров
+print "Введите начальное значение X: "
+x_start = gets.chomp.to_f
+
+print "Введите конечное значение X: "
+x_end = gets.chomp.to_f
+
+# Проверка корректности ввода
+while (x_end - x_start) == 0
+  puts "Разница между Хнач и Хкон должна быть больше 0."
+  print "Введите начальное значение X: "
+  x_start = gets.chomp.to_f
+  print "Введите конечное значение X: "
+  x_end = gets.chomp.to_f
+end
+
+print "Введите шаг dx: "
+dx = gets.chomp.to_f
+
+# Проверка корректности ввода
+while dx <= 0
+  puts "Шаг dx должен быть положительным."
+  print "Введите шаг dx: "
+  dx = gets.chomp.to_f
+end
+
+# Вывод таблицы
+puts "-----------------"
+puts "|   X   |   Y   |"
+puts "-----------------"
+
+x = x_start
+while x <= x_end
+  y = calculate_y(x)
+  puts "| #{format('%6.2f', x)} | #{format('%6.2f', y)} |"
+  x += dx
+end
+
+puts "-----------------"
