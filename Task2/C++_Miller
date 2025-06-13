@@ -250,7 +250,6 @@ int getSingleWordInput(const string& prompt) {
     }
 }
 
-// Главная функция программы
 int main() {
     vector<int> numbers;    // Вектор для хранения сгенерированных чисел
     vector<string> Res;     // Вектор для результатов проверки
@@ -276,11 +275,26 @@ int main() {
     cout << "\n\n";
 
     // Генерация 10 простых чисел заданной размерности
-    for (int i = 0; i < 10; i++) {
-        if (!createNum(t, numbers, Res, K, primes)) {
-            cout << "Не удалось сгенерировать уникальное простое число после нескольких попыток." << endl;
-            break;
+    int generated = 0;
+    int total_attempts = 0;
+    const int MAX_TOTAL_ATTEMPTS = 1000000;
+    
+    while (generated < 10 && total_attempts < MAX_TOTAL_ATTEMPTS) {
+        vector<int> current_numbers;
+        vector<string> current_Res;
+        vector<int> current_K;
+        
+        if (createNum(t, current_numbers, current_Res, current_K, primes)) {
+            numbers.push_back(current_numbers.back());
+            Res.push_back(current_Res.back());
+            K.push_back(current_K.back());
+            generated++;
         }
+        total_attempts++;
+    }
+
+    if (generated < 10) {
+        cout << "Предупреждение: удалось сгенерировать только " << generated << " из 10 чисел." << endl;
     }
 
     // Вывод результатов в виде таблицы
@@ -313,5 +327,5 @@ int main() {
         cout << endl;
     }
 
-    return 0; // Завершение программы
+    return 0;
 }
