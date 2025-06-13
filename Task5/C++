@@ -84,34 +84,50 @@ vector<pair<double, double>> coffee(double Temp, double EnvT, double CoolC, int 
 
 int main() {
     // Ввод параметров от пользователя
-    cout << "Enter start coffee temperature(Celsius): ";
+    cout << "Введите начальную температуру кофе (°C): ";
     cin >> Temp;
-    cout << "Enter temperature of environment(Celsius): ";
+    cout << "Введите температуру окружающей среды (°C): ";
     cin >> EnvT;
-    cout << "Enter cooling coefficient(dC): ";
+    cout << "Введите коэффициент охлаждения (dC): ";
     cin >> CoolC;
-    cout << "Enter time of full cool(Seconds): ";
+    cout << "Введите время охлаждения (секунды): ";
     cin >> time_limit;
-    
-    // Вычисление результатов охлаждения
+
+    // Вычисление результатов
     vector<pair<double, double>> results = coffee(Temp, EnvT, CoolC, time_limit);
-    
-    // Вывод коэффициентов аппроксимации
-    cout << "Coefficients of the approximating line a - " << apox_vector[0] 
-         << ", b - " << apox_vector[1] << endl;
-    
-    // Вывод таблицы с результатами
-    cout << "|------|" << "------------|" << "---------------|" << endl;
-    cout << "| Time |" << " Temperature|" << "CorrelationCoef|" << endl;
-    cout << "|------|" << "------------|" << "---------------|" << endl;
+
+    // Вывод результатов анализа
+    cout << "\nАНАЛИЗ ОХЛАЖДЕНИЯ КОФЕ" << endl;
+    cout << "-----------------------" << endl;
+    cout << "- Начальная температура: " << Temp << " °C" << endl;
+    cout << "- Температура среды: " << EnvT << " °C" << endl;
+    cout << "- Коэффициент охлаждения: " << CoolC << " dC" << endl;
+    cout << "- Время моделирования: " << time_limit << " сек" << endl << endl;
+
+    // Аппроксимация
+    cout << "ЛИНЕЙНАЯ АППРОКСИМАЦИЯ" << endl;
+    cout << "Уравнение прямой: T(t) = " << apox_vector[0] << " * t + " << apox_vector[1] << endl;
+    cout << "- Коэффициент a (скорость изменения): " << apox_vector[0] << " °C/сек" << endl;
+    cout << "- Коэффициент b (начальное смещение): " << apox_vector[1] << " °C" << endl << endl;
+
+    // Корреляционный анализ
+    cout << "КОРРЕЛЯЦИОННЫЙ АНАЛИЗ" << endl;
+    cout << "- Коэффициент корреляции Пирсона: " << results[0].second << endl;
+    cout << "  (Значение близкое к -1 показывает сильную обратную зависимость)" << endl << endl;
+
+    // Таблица результатов
+    cout << "ТАБЛИЦА ТЕМПЕРАТУР" << endl;
+    cout << "|-------|-------------|------------------|" << endl;
+    cout << "| Время | Температура | Корреляция (r)   |" << endl;
+    cout << "|-------|-------------|------------------|" << endl;
     
     int t = 0;
     for (const auto& result : results) {
-        cout << "|" << setw(6) << t << "|" << setw(12) << result.first 
-             << "|" << setw(15) << result.second << "|" << endl;
+        cout << "| " << setw(5) << t << " | " << setw(11) << fixed << setprecision(2) << result.first 
+             << " | " << setw(16) << result.second << " |" << endl;
         t++;
-        cout << "|------|" << "------------|" << "---------------|" << endl;
     }
-    
+    cout << "|-------|-------------|------------------|" << endl;
+
     return 0;
 }
