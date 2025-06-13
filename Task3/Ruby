@@ -1,1 +1,67 @@
+# Функция для проверки, является ли число рациональным
+def is_rational(sum, max_denominator = 1000)
+  (1..max_denominator).each do |denom|
+    numerator = (sum * denom).round
+    if (numerator.to_f / denom - sum).abs < 1e-9
+      return true
+    end
+  end
+  false
+end
 
+# Функция для вычисления НОД
+def gcd(a, b)
+  while b != 0
+    temp = b
+    b = a % b
+    a = temp
+  end
+  a
+end
+
+# Функция для представления числа в виде дроби
+def to_fraction(sum, max_denominator = 1000)
+  numerator_result = 0
+  denominator_result = 1
+  
+  (1..max_denominator).each do |denominator|
+    numerator = (sum * denominator).round
+    if (numerator.to_f / denominator - sum).abs < 1e-9
+      common_divisor = gcd(numerator.abs, denominator)
+      numerator_result = numerator / common_divisor
+      denominator_result = denominator / common_divisor
+      return [numerator_result, denominator_result]
+    end
+  end
+  
+  [(sum.round), 1]
+end
+
+# Основная программа
+a, b = gets.split.map(&:to_i)
+
+# Проверка сходимости по признаку Даламбера
+if b <= 1
+  puts "infinity"
+  exit
+end
+
+# Численное приближение суммы ряда
+sum = 0.0
+epsilon = 1e-10 # Точность
+term = 0.0
+n = 1
+loop do
+  term = (n**a).to_f / (b**n).to_f
+  sum += term
+  n += 1
+  break if term <= epsilon
+end
+
+# Проверка на рациональность
+if is_rational(sum)
+  numerator, denominator = to_fraction(sum)
+  puts "#{numerator}/#{denominator}"
+else
+  puts "irrational"
+end
