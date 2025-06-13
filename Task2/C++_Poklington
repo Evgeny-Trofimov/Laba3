@@ -1,4 +1,3 @@
-// Подключаем необходимые библиотеки
 #include <iostream>     
 #include <vector>       
 #include <iomanip>      
