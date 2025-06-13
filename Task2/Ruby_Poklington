@@ -1,0 +1,295 @@
+require 'prime'
+require 'securerandom'
+require 'thread'
+require 'bigdecimal'
+require 'bigdecimal/util'
+
+# Функция генерации случайного числа в диапазоне [min, max]
+def random_generator(min, max)
+  SecureRandom.random_number(max - min + 1) + min
+end
+
+# Проверка, является ли число i простым (делится ли на простые из массива primes)
+def is_prime(i, primes)
+  primes.each do |prime|
+    return false if i % prime == 0
+  end
+  true
+end
+
+# Реализация решета Эратосфена для нахождения простых чисел до p
+def eratosthenes(p)
+  primes = [2]
+  (3...p).step(2) do |i|
+    primes << i if is_prime(i, primes)
+  end
+  primes
+end
+
+# Функция модульного возведения в степень (number^power mod n)
+def mod_pow(number, power, n)
+  result = 1
+  while power > 0
+    if power % 2 != 0
+      result = (result * number) % n
+    end
+    power /= 2
+    number = (number * number) % n
+  end
+  result
+end
+
+# Проверка малой теоремы Ферма (a^x mod p == 1)
+def fermat_test(a, x, p)
+  mod_pow(a, x, p) == 1
+end
+
+# Тест Поклингтона для проверки простоты числа
+def poklington_test(n, factors, t)
+  a = []
+  t.times do
+    aj = random_generator(2, n - 1)
+    return false unless fermat_test(aj, n - 1, n)
+
+    found = false
+    factors.each do |qj|
+      if fermat_test(aj, (n - 1) / qj, n)
+        found = true
+        break
+      end
+    end
+
+    return true unless found
+  end
+  false
+end
+
+# Подсчет количества бит в числе
+def count_bits(number)
+  return 1 if number == 0
+  Math.log2(number).to_i + 1
+end
+
+# Проверка попадания числа в битовый диапазон
+def within_bit_range(number, bit_count, formin)
+  num_bits = count_bits(number)
+  return 1 if num_bits < bit_count
+  return 2 if num_bits > bit_count
+  3
+end
+
+# Основная функция генерации простого числа
+def create_num(k, numbers, plusminus, oshibki, primes, should_stop, mutex)
+  q = []
+  f = 1
+  tempf = 1
+  n = 0
+  target_bit_count_f = (k / 2) + 1
+  target_bit_count_r = target_bit_count_f - 1
+  temp_oshibki = 0
+  formin = 1
+
+  formin = 0 if k < 8
+
+  loop do
+    break if mutex.synchronize { should_stop[0] }
+
+    qi = primes[random_generator(0, primes.size / 10)]
+    ai = random_generator(1, 12)
+    tempf *= qi ** ai
+
+    range = within_bit_range(tempf, target_bit_count_f, formin)
+    case range
+    when 2
+      f = 1
+      tempf = 1
+      q.clear
+    when 1
+      q << qi
+    when 3
+      f = tempf
+      q << qi
+      r = 0
+      loop do
+        r = random_generator(1, 30) * 2
+        break if within_bit_range(r, target_bit_count_r, formin) == 3
+      end
+
+      n = r * f + 1
+      if poklington_test(n, q, 1)
+        break
+      else
+        temp_oshibki += 1
+        f = 1
+        tempf = 1
+        n = 0
+        q.clear
+      end
+    end
+  end
+
+  success = false
+  mutex.synchronize do
+    return false if should_stop[0]
+    if numbers.include?(n)
+      return false
+    end
+  end
+
+  temp_oshibki2 = 0
+  iter = 1
+  loop do
+    break if mutex.synchronize { should_stop[0] }
+
+    i = 0
+    100.times do
+      unless poklington_test(n, q, iter)
+        temp_oshibki2 += 1
+      end
+      i += 1
+    end
+
+    if temp_oshibki2 <= i / 10
+      break
+    else
+      temp_oshibki2 = 0
+      iter += 1
+    end
+  end
+
+  mutex.synchronize do
+    return false if should_stop[0]
+    return false if numbers.size >= 10
+
+    if temp_oshibki2 <= i / 10
+      plusminus << "+"
+    else
+      plusminus << "-"
+    end
+    numbers << n
+    oshibki << temp_oshibki
+
+    if numbers.size >= 10
+      should_stop[0] = true
+    end
+    success = true
+  end
+
+  success
+end
+
+# Функция для безопасного ввода одного числа
+def get_single_word_input(prompt)
+  loop do
+    print prompt
+    input = gets.chomp
+
+    # Проверка, что ввод состоит только из цифр
+    next unless input =~ /^\d+$/
+
+    value = input.to_i
+    if value > 3 && value <= 20
+      return value
+    else
+      puts "Некорректное число. Попробуйте снова."
+    end
+  end
+end
+
+# Главная функция программы
+def main
+  numbers = []
+  results = []
+  attempts = []
+  bit_length = 0
+  should_stop = [false]
+  mutex = Mutex.new
+
+  # Ввод длины простого числа
+  loop do
+    bit_length = get_single_word_input("Введите размерность простого числа (4-20 бит): \n")
+    break if (4..20).cover?(bit_length)
+    puts "Некорректный ввод. Допустимый диапазон: 4-20 бит."
+  end
+
+  # Генерация простых чисел до 500 (Решето Эратосфена)
+  primes = eratosthenes(500)
+  puts "\nПростые числа до 500 (Решето Эратосфена):"
+  primes.each_slice(10) do |slice|
+    puts slice.join(" ")
+  end
+  puts "\n"
+
+  # Запуск потоков для генерации чисел
+  threads = []
+  num_threads = [4, Concurrent.processor_count].min
+
+  num_threads.times do
+    threads << Thread.new do
+      loop do
+        break if mutex.synchronize { should_stop[0] }
+        create_num(bit_length, numbers, results, attempts, primes, should_stop, mutex)
+      end
+    end
+  end
+
+  # Ожидание завершения (максимум 10 секунд)
+  start_time = Time.now
+  while Time.now - start_time < 10
+    break if mutex.synchronize { numbers.size >= 10 || should_stop[0] }
+    sleep 0.1
+  end
+
+  mutex.synchronize { should_stop[0] = true }
+
+  # Ожидание завершения всех потоков
+  threads.each(&:join)
+
+  # Обрезка результатов до 10 чисел (если их больше)
+  mutex.synchronize do
+    if numbers.size > 10
+      numbers = numbers[0..9]
+      results = results[0..9]
+      attempts = attempts[0..9]
+    end
+  end
+
+  # Вывод результатов в виде таблицы
+  unless numbers.empty?
+    puts "\nРезультаты генерации простых чисел (#{bit_length} бит):\n\n"
+
+    # Заголовок таблицы
+    print "|    Num    |"
+    numbers.each_with_index do |_, i|
+      print " #{i+1.to_s.rjust(5)} |"
+    end
+
+    # Разделительная строка
+    print "\n|-----------|"
+    numbers.each do
+      print "-------|"
+    end
+
+    # Строка с числами
+    print "\n|     P     |"
+    numbers.each do |num|
+      print " #{num.to_s.rjust(5)} |"
+    end
+
+    # Строка с результатами проверки
+    print "\n| Результат |"
+    results.each do |res|
+      print " #{res.rjust(5)} |"
+    end
+
+    # Строка с количеством попыток
+    print "\n|     K     |"
+    attempts.each do |att|
+      print " #{att.to_s.rjust(5)} |"
+    end
+
+    puts
+  end
+end
+
+main
