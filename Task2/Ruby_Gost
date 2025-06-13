@@ -1,1 +1,180 @@
+require 'prime'
+require 'securerandom'
+require 'thread'
+require 'bigdecimal'
+require 'bigdecimal/util'
 
+# Глобальные переменные для синхронизации
+$mutex = Mutex.new
+$stop_flag = false
+
+# Функция генерации случайного числа в диапазоне [min, max]
+def random_int(min, max)
+  SecureRandom.random_number(max - min + 1) + min
+end
+
+# Функция модульного возведения в степень (a^b mod n)
+def mod_pow(a, b, n)
+  result = 1
+  a = a % n
+
+  while b > 0
+    if b % 2 == 1
+      result = (result * a) % n
+    end
+    b = b >> 1
+    a = (a * a) % n
+  end
+  result
+end
+
+# Реализация решета Эратосфена для нахождения простых чисел до limit
+def eratosthenes_sieve(limit)
+  is_prime = Array.new(limit + 1, true)
+  is_prime[0] = false
+  is_prime[1] = false
+
+  (2..Math.sqrt(limit).to_i).each do |p|
+    if is_prime[p]
+      (p*p..limit).step(p) { |i| is_prime[i] = false }
+    end
+  end
+
+  primes = []
+  (2..limit).each { |i| primes << i if is_prime[i] }
+  primes
+end
+
+# Простая проверка числа на простоту
+def is_prime_simple(n)
+  return false if n <= 1
+  return true if n <= 3
+  return false if n % 2 == 0 || n % 3 == 0
+
+  i = 5
+  while i * i <= n
+    return false if n % i == 0 || n % (i + 2) == 0
+    i += 6
+  end
+  true
+end
+
+# Тест Диемитко на простоту
+def diemitko_test(n, n_val, u)
+  return false if mod_pow(2, n_val + u, n) == 1
+  mod_pow(2, n - 1, n) == 1
+end
+
+# Проверка, что число находится в заданном битовом диапазоне
+def is_in_bit_range(number, target_bits, tolerance = 0)
+  return false if number == 0
+  actual_bits = Math.log2(number).to_i + 1
+  actual_bits >= target_bits - tolerance && actual_bits <= target_bits + tolerance
+end
+
+# Функция генерации простого числа заданной битовой длины
+def generate_prime(k, primes, numbers, results, attempts)
+  q_bits = k / 2
+  tolerance = if k < 10
+                k <= 5 ? 2 : 1
+              else
+                0
+              end
+  
+  max_attempts = 1000
+  attempt_count = 0
+  upper_bound = (1 << k) - 1
+  lower_bound = 1 << (k - 1)
+
+  until $stop_flag || attempt_count >= max_attempts
+    q = primes[random_int(0, primes.size - 1)]
+    next unless is_in_bit_range(q, q_bits, tolerance)
+
+    n_val = ((1 << (k-1)) / q
+    n_val += 1 if n_val % 2 != 0
+
+    u = 0
+    loop do
+      p = (n_val + u) * q + 1
+
+      if p > upper_bound
+        attempt_count += 1
+        break
+      end
+
+      if p >= lower_bound && p <= upper_bound
+        if is_prime_simple(p) && diemitko_test(p, n_val, u)
+          $mutex.synchronize do
+            unless numbers.include?(p) || numbers.size >= 10
+              numbers << p
+              results << "+"
+              attempts << u
+              return true
+            end
+          end
+        end
+      end
+
+      u += 2
+      attempt_count += 1
+      break if attempt_count >= max_attempts
+    end
+  end
+  false
+end
+
+# Функция для корректного ввода числа в заданном диапазоне
+def valid_input(prompt, min_val, max_val)
+  loop do
+    print prompt
+    input = gets.chomp
+    next unless input =~ /^\d+$/
+    value = input.to_i
+    return value if value.between?(min_val, max_val)
+    puts "Ошибка. Введите число от #{min_val} до #{max_val}"
+  end
+end
+
+def main
+  t = valid_input("Введите размерность простого числа (4-19): ", 4, 19)
+
+  primes = eratosthenes_sieve(500)
+  puts "\nПростые числа до 500 (Решето Эратосфена):"
+  primes.each_slice(10) { |slice| puts slice.join(' ') }
+  puts "\n"
+
+  numbers = []
+  results = []
+  attempts = []
+
+  threads = []
+  target_count = 10
+  num_threads = [4, Concurrent.processor_count].min
+
+  num_threads.times do
+    threads << Thread.new do
+      until $stop_flag || numbers.size >= target_count
+        generate_prime(t, primes, numbers, results, attempts)
+      end
+    end
+  end
+
+  start_time = Time.now
+  while Time.now - start_time < 10
+    break if $mutex.synchronize { numbers.size >= target_count }
+    sleep 0.1
+  end
+  $stop_flag = true
+
+  threads.each(&:join)
+
+  puts "\nРезультаты генерации простых чисел (#{t} бит):\n\n"
+
+  puts "|    Num    |#{numbers.each_with_index.map { |_, i| " #{(i+1).to_s.rjust(5)} |" }.join}"
+  puts "|-----------|#{['-------|'] * numbers.size.join}"
+  puts "|     P     |#{numbers.map { |num| " #{num.to_s.rjust(5)} |" }.join}"
+  puts "| Результат |#{results.map { |res| " #{res.rjust(5)} |" }.join}"
+  puts "|     K     |#{attempts.map { |att| " #{att.to_s.rjust(5)} |" }.join}"
+end
+
+main
